@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 # CONSTANTS & DATA
 # ═══════════════════════════════════════════════
 
-WEATHER_API_KEY = "850ec0960167a55a828cc741add8c29a"
+WEATHER_API_KEY = st.secrets["WEATHER_API_KEY"]
 MODEL_PATH      = "crop_model.pkl"
 LOGO_PATH       = "crop1.png"
 
