@@ -20,7 +20,7 @@ warnings.filterwarnings("ignore")
 # CONSTANTS & DATA
 # ═══════════════════════════════════════════════
 
-WEATHER_API_KEY = st.secrets["WEATHER_API_KEY"]
+WEATHER_API_KEY = "850ec0960167a55a828cc741add8c29a"
 MODEL_PATH      = "crop_model.pkl"
 LOGO_PATH       = "crop1.png"
 
@@ -243,10 +243,26 @@ html,body,[class*="css"] {{ font-family:var(--ff-b); color:#1a2e1a; }}
 [data-testid="stSidebar"] h3,[data-testid="stSidebar"] label {{
     color:#b7e4c7 !important; font-weight:600 !important;
 }}
+/* ══════════════════════════════════════════
+   FIX 3 — Sidebar text input: readable text
+   White background, dark text, visible placeholder.
+   ══════════════════════════════════════════ */
 [data-testid="stSidebar"] .stTextInput input {{
-    background:rgba(255,255,255,.12) !important;
-    border:1px solid rgba(255,255,255,.25) !important;
-    border-radius:var(--r-sm) !important; color:white !important;
+    background: #ffffff !important;
+    border: 1.5px solid rgba(255,255,255,.4) !important;
+    border-radius: var(--r-sm) !important;
+    color: #1a2e1a !important;
+    font-weight: 500 !important;
+    padding: 8px 14px !important;
+}}
+[data-testid="stSidebar"] .stTextInput input::placeholder {{
+    color: #7a8a7a !important;
+    opacity: 1 !important;
+}}
+[data-testid="stSidebar"] .stTextInput input:focus {{
+    border-color: #74c69d !important;
+    box-shadow: 0 0 0 2px rgba(116,198,157,.25) !important;
+    outline: none !important;
 }}
 [data-testid="stSidebar"] .stButton>button {{
     background:linear-gradient(135deg,var(--e-light),var(--e-mid)) !important;
@@ -259,12 +275,83 @@ html,body,[class*="css"] {{ font-family:var(--ff-b); color:#1a2e1a; }}
     transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.3);
 }}
 
-/* ── Hide slider tooltip ── */
-[role="slider"]::before,[role="slider"]::after,
-div[data-baseweb="tooltip"],div[data-baseweb="popover"],
-span[role="tooltip"],[data-testid="stTooltipIcon"] {{
-    display:none !important; visibility:hidden !important;
-    opacity:0 !important; pointer-events:none !important;
+/* ══════════════════════════════════════════
+   FIX 1 — Selectbox: z-index & interaction
+   Ensure dropdown menu renders above all other
+   elements and remains fully clickable.
+   ══════════════════════════════════════════ */
+
+/* Outer select container — stack above cards/hero */
+div[data-baseweb="select"] {{
+    position: relative !important;
+    z-index: 100 !important;
+}}
+
+/* The visible input box */
+div[data-baseweb="select"] > div:first-child {{
+    position: relative !important;
+    z-index: 101 !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}}
+
+/* The floating dropdown menu (popover) —
+   must be ABOVE everything including sidebar & cards */
+div[data-baseweb="popover"],
+div[data-baseweb="menu"],
+ul[data-baseweb="menu"] {{
+    z-index: 99999 !important;
+    position: absolute !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    display: block !important;
+}}
+
+/* Each option row inside the dropdown */
+li[role="option"] {{
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}}
+
+/* ══════════════════════════════════════════
+   FIX 2 — Hide keyboard tooltip text ONLY
+   Targets the "keyboard_double_arrow_..." span
+   that Streamlit leaks from Material Icons.
+   Scoped tightly so dropdown menus are NOT
+   affected — only tooltip/aria-live spans.
+   ══════════════════════════════════════════ */
+
+/* Slider thumb pseudo-elements */
+[role="slider"]::before,
+[role="slider"]::after {{
+    display: none !important;
+}}
+
+/* Streamlit's internal tooltip icon button */
+[data-testid="stTooltipIcon"] {{
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}}
+
+/* aria-live announcer spans (screen reader only, leaks text visually) */
+span[aria-live],
+div[aria-live],
+[data-testid="stAriaLive"] {{
+    display: none !important;
+    visibility: hidden !important;
+}}
+
+/* Sidebar-scoped: hide tooltips in sidebar ONLY
+   (does NOT touch main-area dropdown popovers) */
+[data-testid="stSidebar"] span[role="tooltip"],
+[data-testid="stSidebar"] div[role="tooltip"],
+[data-testid="stSidebar"] [data-baseweb="tooltip"] {{
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }}
 
 /* ── Hero ── */
@@ -433,14 +520,15 @@ div[data-testid="stButton"]>button:hover {{
 }}
 .img-wrap img:hover {{ transform:scale(1.03); }}
 
-/* ── Selectbox ── */
-div[data-baseweb="select"]>div:first-child {{
-    border-radius:var(--r-sm) !important;
-    border-color:#c8dfc8 !important; background:white !important;
+/* ── Selectbox input box appearance ── */
+div[data-baseweb="select"] > div:first-child {{
+    border-radius: var(--r-sm) !important;
+    border-color: #c8dfc8 !important;
+    background: white !important;
 }}
-div[data-baseweb="select"]>div:first-child:focus-within {{
-    border-color:var(--g-main) !important;
-    box-shadow:0 0 0 2px rgba(64,145,108,.15) !important;
+div[data-baseweb="select"] > div:first-child:focus-within {{
+    border-color: #40916c !important;
+    box-shadow: 0 0 0 2px rgba(64,145,108,.15) !important;
 }}
 
 /* ── Logo ── */
