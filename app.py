@@ -145,19 +145,20 @@ def suitability_score(N, P, K, crop):
     req = NPK_REQ[crop]
 
     def calc_score(actual, ideal):
-        if ideal == 0:
-            return 100
+        tolerance = ideal * 0.5   # 👈 50% flexibility
         diff = abs(actual - ideal)
-        score = max(0, 100 - (diff / ideal) * 100)
-        return score
+
+        if diff <= tolerance:
+            return 100 - (diff / tolerance) * 50   # slow decrease
+        else:
+            return max(0, 50 - (diff / ideal) * 50)  # gradual penalty
 
     sN = calc_score(N, req["N"])
     sP = calc_score(P, req["P"])
     sK = calc_score(K, req["K"])
 
-    final_score = (0.4*sN + 0.3*sP + 0.3*sK)   # weightage added
+    final_score = (sN + sP + sK) / 3
     return round(final_score, 1)
-
 
 def get_label(score):
     if score > 80:
