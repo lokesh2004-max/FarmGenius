@@ -128,18 +128,47 @@ def fertilizer_advice(N: int, P: int, K: int) -> tuple:
     return "✅ Soil is Balanced", "Nutrient levels are optimal. Maintain with organic compost.", "#388e3c"
 
 
-def suitability_score(N: int, P: int, K: int, crop_key: str) -> float:
-    """Score 0-100: how well current NPK matches a crop's ideal requirement."""
-    req = NPK_REQ.get(crop_key, {})
-    if not req:
-        return 0.0
+# def suitability_score(N: int, P: int, K: int, crop_key: str) -> float:
+#     """Score 0-100: how well current NPK matches a crop's ideal requirement."""
+#     req = NPK_REQ.get(crop_key, {})
+#     if not req:
+#         return 0.0
 
-    def _pct(actual, ideal):
+#     def _pct(actual, ideal):
+#         if ideal == 0:
+#             return 100.0 if actual == 0 else max(0.0, 100.0 - float(actual))
+#         return round(max(0.0, 100.0 * (1.0 - abs(actual - ideal) / ideal)), 1)
+
+#     return round((_pct(N, req["N"]) + _pct(P, req["P"]) + _pct(K, req["K"])) / 3, 1)
+
+def suitability_score(N, P, K, crop):
+    req = NPK_REQ[crop]
+
+    def calc_score(actual, ideal):
         if ideal == 0:
-            return 100.0 if actual == 0 else max(0.0, 100.0 - float(actual))
-        return round(max(0.0, 100.0 * (1.0 - abs(actual - ideal) / ideal)), 1)
+            return 100
+        diff = abs(actual - ideal)
+        score = max(0, 100 - (diff / ideal) * 100)
+        return score
 
-    return round((_pct(N, req["N"]) + _pct(P, req["P"]) + _pct(K, req["K"])) / 3, 1)
+    sN = calc_score(N, req["N"])
+    sP = calc_score(P, req["P"])
+    sK = calc_score(K, req["K"])
+
+    final_score = (0.4*sN + 0.3*sP + 0.3*sK)   # weightage added
+    return round(final_score, 1)
+
+
+def get_label(score):
+    if score > 80:
+        return "Excellent"
+    elif score > 60:
+        return "Good"
+    elif score > 40:
+        return "Moderate"
+    else:
+        return "Poor"
+
 
 
 def safe_image(path: str, **kwargs) -> bool:
@@ -157,6 +186,7 @@ def score_card(crop: str, score: float, other_score: float,
                border_color: str, bar_grad: str):
     """Render a crop suitability score card."""
     em    = CROP_EMOJI.get(crop, "🌿")
+    label = get_label(score)             
     win   = score >= other_score
     sc    = "#40916c" if win else "#9e9e9e"
     badge = (
@@ -175,6 +205,7 @@ def score_card(crop: str, score: float, other_score: float,
         <div style="font-family:'Playfair Display',serif;font-size:52px;
                     font-weight:800;color:{sc};line-height:1.1;">{score}</div>
         <div style="font-size:12px;color:#bbb;margin-bottom:10px;">out of 100</div>
+        <div style="font-size:13px;color:#666;font-weight:600;">{label}</div>
         <div style="background:#e8f5e9;border-radius:50px;height:10px;margin:0 6px;">
             <div style="background:{bar_grad};width:{w}%;height:10px;border-radius:50px;"></div>
         </div>
