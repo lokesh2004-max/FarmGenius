@@ -71,13 +71,55 @@ TIPS = [
     ("🤝", "Join FPO",       "Join FPO for better crop prices"),
 ]
 
+SCHEMES = [
+    {
+        "icon": "💰",
+        "tag": "Income Support",
+        "name": "PM-KISAN",
+        "full": "Pradhan Mantri Kisan Samman Nidhi",
+        "desc": "Direct income support of ₹6,000/year in three equal instalments to all landholding farmer families across India.",
+        "link": "https://pmkisan.gov.in",
+    },
+    {
+        "icon": "🛡️",
+        "tag": "Crop Insurance",
+        "name": "PMFBY",
+        "full": "Pradhan Mantri Fasal Bima Yojana",
+        "desc": "Comprehensive crop insurance covering sowing risk, standing crop loss & post-harvest damage at very low premium rates.",
+        "link": "https://pmfby.gov.in",
+    },
+    {
+        "icon": "🧪",
+        "tag": "Soil Health",
+        "name": "Soil Health Card",
+        "full": "Soil Health Card Scheme",
+        "desc": "Free soil testing and personalised nutrient cards issued to farmers every two years to guide fertilizer use and improve yield.",
+        "link": "https://soilhealth.dac.gov.in",
+    },
+    {
+        "icon": "🏪",
+        "tag": "Digital Market",
+        "name": "e-NAM",
+        "full": "National Agriculture Market",
+        "desc": "Pan-India online trading portal connecting farmers, traders and buyers for transparent price discovery and better market access.",
+        "link": "https://enam.gov.in",
+    },
+    {
+        "icon": "💧",
+        "tag": "Irrigation",
+        "name": "PMKSY",
+        "full": "Pradhan Mantri Krishi Sinchayee Yojana",
+        "desc": "Ensures water to every field (Har Khet Ko Pani) and promotes efficient water use through micro-irrigation like drip and sprinkler.",
+        "link": "https://pmksy.gov.in",
+    },
+]
+
 # ═══════════════════════════════════════════════
 # UTILITY FUNCTIONS
 # ═══════════════════════════════════════════════
 
 @st.cache_data(show_spinner=False)
 def load_base64_image(path: str) -> str:
-    """Load an image file and return it as a base64 string."""
     if os.path.exists(path):
         with open(path, "rb") as f:
             return base64.b64encode(f.read()).decode()
@@ -86,13 +128,11 @@ def load_base64_image(path: str) -> str:
 
 @st.cache_resource(show_spinner=False)
 def load_model(path: str):
-    """Load and cache the ML model."""
     with open(path, "rb") as f:
         return pickle.load(f)
 
 
 def fetch_weather(city: str):
-    """Fetch temperature and humidity from OpenWeatherMap."""
     if not city.strip():
         return None, None
     try:
@@ -118,7 +158,6 @@ def fetch_weather(city: str):
 
 
 def fertilizer_advice(N: int, P: int, K: int) -> tuple:
-    """Return fertilizer recommendation based on NPK values."""
     if N < 50:
         return "🌿 Apply Urea", "Nitrogen is low — Urea boosts healthy leaf & stem growth.", "#2e7d32"
     if P < 30:
@@ -128,22 +167,35 @@ def fertilizer_advice(N: int, P: int, K: int) -> tuple:
     return "✅ Soil is Balanced", "Nutrient levels are optimal. Maintain with organic compost.", "#388e3c"
 
 
-def suitability_score(N: int, P: int, K: int, crop_key: str) -> float:
-    """Score 0-100: how well current NPK matches a crop's ideal requirement."""
-    req = NPK_REQ.get(crop_key, {})
-    if not req:
-        return 0.0
+def suitability_score(N, P, K, crop):
+    req = NPK_REQ[crop]
 
-    def _pct(actual, ideal):
-        if ideal == 0:
-            return 100.0 if actual == 0 else max(0.0, 100.0 - float(actual))
-        return round(max(0.0, 100.0 * (1.0 - abs(actual - ideal) / ideal)), 1)
+    def calc_score(actual, ideal):
+        tolerance = ideal * 0.5
+        diff = abs(actual - ideal)
+        if diff <= tolerance:
+            return 100 - (diff / tolerance) * 50
+        else:
+            return max(0, 50 - (diff / ideal) * 50)
 
-    return round((_pct(N, req["N"]) + _pct(P, req["P"]) + _pct(K, req["K"])) / 3, 1)
+    sN = calc_score(N, req["N"])
+    sP = calc_score(P, req["P"])
+    sK = calc_score(K, req["K"])
+    return round((sN + sP + sK) / 3, 1)
+
+
+def get_label(score):
+    if score > 80:
+        return "Excellent"
+    elif score > 60:
+        return "Good"
+    elif score > 40:
+        return "Moderate"
+    else:
+        return "Poor"
 
 
 def safe_image(path: str, **kwargs) -> bool:
-    """Render a Streamlit image safely; returns True if successful."""
     if path and os.path.exists(path):
         try:
             st.image(path, **kwargs)
@@ -155,8 +207,8 @@ def safe_image(path: str, **kwargs) -> bool:
 
 def score_card(crop: str, score: float, other_score: float,
                border_color: str, bar_grad: str):
-    """Render a crop suitability score card."""
     em    = CROP_EMOJI.get(crop, "🌿")
+    label = get_label(score)
     win   = score >= other_score
     sc    = "#40916c" if win else "#9e9e9e"
     badge = (
@@ -175,6 +227,7 @@ def score_card(crop: str, score: float, other_score: float,
         <div style="font-family:'Playfair Display',serif;font-size:52px;
                     font-weight:800;color:{sc};line-height:1.1;">{score}</div>
         <div style="font-size:12px;color:#bbb;margin-bottom:10px;">out of 100</div>
+        <div style="font-size:13px;color:#666;font-weight:600;">{label}</div>
         <div style="background:#e8f5e9;border-radius:50px;height:10px;margin:0 6px;">
             <div style="background:{bar_grad};width:{w}%;height:10px;border-radius:50px;"></div>
         </div>
@@ -203,7 +256,7 @@ st.set_page_config(
 )
 
 # ═══════════════════════════════════════════════
-# CSS
+# CSS  (ALL braces inside f-string are doubled)
 # ═══════════════════════════════════════════════
 
 logo_b64  = load_base64_image(LOGO_PATH)
@@ -243,10 +296,6 @@ html,body,[class*="css"] {{ font-family:var(--ff-b); color:#1a2e1a; }}
 [data-testid="stSidebar"] h3,[data-testid="stSidebar"] label {{
     color:#b7e4c7 !important; font-weight:600 !important;
 }}
-/* ══════════════════════════════════════════
-   FIX 3 — Sidebar text input: readable text
-   White background, dark text, visible placeholder.
-   ══════════════════════════════════════════ */
 [data-testid="stSidebar"] .stTextInput input {{
     background: #ffffff !important;
     border: 1.5px solid rgba(255,255,255,.4) !important;
@@ -275,28 +324,24 @@ html,body,[class*="css"] {{ font-family:var(--ff-b); color:#1a2e1a; }}
     transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,.3);
 }}
 
-/* ══════════════════════════════════════════
-   FIX 1 — Selectbox: z-index & interaction
-   Ensure dropdown menu renders above all other
-   elements and remains fully clickable.
-   ══════════════════════════════════════════ */
-
-/* Outer select container — stack above cards/hero */
+/* ── Selectbox z-index ── */
 div[data-baseweb="select"] {{
     position: relative !important;
     z-index: 100 !important;
 }}
-
-/* The visible input box */
 div[data-baseweb="select"] > div:first-child {{
     position: relative !important;
     z-index: 101 !important;
     pointer-events: auto !important;
     cursor: pointer !important;
+    border-radius: var(--r-sm) !important;
+    border-color: #c8dfc8 !important;
+    background: white !important;
 }}
-
-/* The floating dropdown menu (popover) —
-   must be ABOVE everything including sidebar & cards */
+div[data-baseweb="select"] > div:first-child:focus-within {{
+    border-color: #40916c !important;
+    box-shadow: 0 0 0 2px rgba(64,145,108,.15) !important;
+}}
 div[data-baseweb="popover"],
 div[data-baseweb="menu"],
 ul[data-baseweb="menu"] {{
@@ -307,51 +352,25 @@ ul[data-baseweb="menu"] {{
     opacity: 1 !important;
     display: block !important;
 }}
-
-/* Each option row inside the dropdown */
 li[role="option"] {{
     pointer-events: auto !important;
     cursor: pointer !important;
 }}
 
-/* ══════════════════════════════════════════
-   FIX 2 — Hide keyboard tooltip text ONLY
-   Targets the "keyboard_double_arrow_..." span
-   that Streamlit leaks from Material Icons.
-   Scoped tightly so dropdown menus are NOT
-   affected — only tooltip/aria-live spans.
-   ══════════════════════════════════════════ */
-
-/* Slider thumb pseudo-elements */
+/* ── Hide tooltip leakage ── */
 [role="slider"]::before,
-[role="slider"]::after {{
-    display: none !important;
-}}
-
-/* Streamlit's internal tooltip icon button */
+[role="slider"]::after {{ display: none !important; }}
 [data-testid="stTooltipIcon"] {{
-    display: none !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
+    display: none !important; visibility: hidden !important; pointer-events: none !important;
 }}
-
-/* aria-live announcer spans (screen reader only, leaks text visually) */
-span[aria-live],
-div[aria-live],
-[data-testid="stAriaLive"] {{
-    display: none !important;
-    visibility: hidden !important;
+span[aria-live], div[aria-live], [data-testid="stAriaLive"] {{
+    display: none !important; visibility: hidden !important;
 }}
-
-/* Sidebar-scoped: hide tooltips in sidebar ONLY
-   (does NOT touch main-area dropdown popovers) */
 [data-testid="stSidebar"] span[role="tooltip"],
 [data-testid="stSidebar"] div[role="tooltip"],
 [data-testid="stSidebar"] [data-baseweb="tooltip"] {{
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-    pointer-events: none !important;
+    display: none !important; visibility: hidden !important;
+    opacity: 0 !important; pointer-events: none !important;
 }}
 
 /* ── Hero ── */
@@ -520,17 +539,6 @@ div[data-testid="stButton"]>button:hover {{
 }}
 .img-wrap img:hover {{ transform:scale(1.03); }}
 
-/* ── Selectbox input box appearance ── */
-div[data-baseweb="select"] > div:first-child {{
-    border-radius: var(--r-sm) !important;
-    border-color: #c8dfc8 !important;
-    background: white !important;
-}}
-div[data-baseweb="select"] > div:first-child:focus-within {{
-    border-color: #40916c !important;
-    box-shadow: 0 0 0 2px rgba(64,145,108,.15) !important;
-}}
-
 /* ── Logo ── */
 .logo {{
     position:fixed; top:70px; right:20px; width:110px; z-index:999;
@@ -543,6 +551,87 @@ div[data-baseweb="select"] > div:first-child:focus-within {{
 @keyframes slideUp {{
     from {{ opacity:0; transform:translateY(24px); }}
     to   {{ opacity:1; transform:translateY(0); }}
+}}
+
+/* ── Scheme card ── */
+.scheme-card {{
+    background: white;
+    border-radius: var(--r-lg);
+    padding: 26px 22px 20px;
+    box-shadow: var(--sh-s);
+    border: 1px solid rgba(64,145,108,.12);
+    border-top: 4px solid var(--g-main);
+    transition: transform .25s ease, box-shadow .25s ease, border-top-color .25s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+}}
+.scheme-card::before {{
+    content: "";
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 110px; height: 110px;
+    border-radius: 50%;
+    background: var(--g-pale);
+    opacity: .5;
+    transition: transform .3s ease;
+}}
+.scheme-card:hover {{
+    transform: translateY(-6px);
+    box-shadow: var(--sh-c);
+    border-top-color: var(--e-light);
+}}
+.scheme-card:hover::before {{ transform: scale(1.4); }}
+.scheme-icon {{ font-size: 34px; line-height: 1; }}
+.scheme-name {{
+    font-family: var(--ff-d);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--g-dark);
+    line-height: 1.3;
+}}
+.scheme-desc {{
+    font-size: 12.5px;
+    color: #5a6e5a;
+    line-height: 1.65;
+    flex: 1;
+}}
+.scheme-link {{
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--g-main);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 50px;
+    background: var(--g-pale);
+    border: 1px solid rgba(64,145,108,.2);
+    transition: background .2s ease, color .2s ease;
+    align-self: flex-start;
+    margin-top: 4px;
+}}
+.scheme-link:hover {{
+    background: var(--g-main);
+    color: white;
+    text-decoration: none;
+}}
+.scheme-tag {{
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--e-mid);
+    background: #fdf3e7;
+    border-radius: 50px;
+    padding: 3px 10px;
+    border: 1px solid rgba(139,94,60,.15);
+    width: fit-content;
 }}
 
 @media (max-width:768px) {{
@@ -679,7 +768,6 @@ if st.button("🌾 Predict Best Crop for My Field", key="predict_btn"):
                 st.error(f"Prediction failed: {e}")
                 st.session_state.prediction = None
 
-# Render result — persists until next prediction click
 if st.session_state.prediction:
     pred_crop = st.session_state.prediction
     em        = CROP_EMOJI.get(pred_crop, "🌾")
@@ -849,7 +937,6 @@ with cc2:
     st.pyplot(fig3, use_container_width=True)
     plt.close(fig3)
 
-    # Verdict banner
     if s_a == s_b:
         verdict, vc = "Both crops are equally suitable!", "#555"
     elif s_a > s_b:
@@ -896,7 +983,6 @@ with ex1:
     img_k = CROP_IMAGES.get(crop_k, "")
     st.markdown('<div class="img-wrap">', unsafe_allow_html=True)
     if not safe_image(img_k, use_container_width=True):
-        # Fallback emoji placeholder when image file is missing
         st.markdown(f"""
         <div style="background:var(--g-pale);border-radius:14px;height:220px;
                     display:flex;align-items:center;justify-content:center;
@@ -928,6 +1014,34 @@ with ex2:
         <div class="crop-desc">📌 {desc_k}</div>
     </div>
     """, unsafe_allow_html=True)
+
+# ═══════════════════════════════════════════════
+# GOVERNMENT FARMING SCHEMES
+# ═══════════════════════════════════════════════
+
+st.markdown('<div class="divider"><span>🏛️</span></div>', unsafe_allow_html=True)
+st.markdown("""
+<div class="sec-head">🏛️ Government Farming Schemes</div>
+<div class="sec-sub">Central government programmes designed to support and protect Indian farmers</div>
+""", unsafe_allow_html=True)
+
+sch_cols = st.columns(5)
+for i, scheme in enumerate(SCHEMES):
+    with sch_cols[i]:
+        st.markdown(f"""
+        <div class="scheme-card">
+            <div class="scheme-icon">{scheme['icon']}</div>
+            <div class="scheme-tag">{scheme['tag']}</div>
+            <div class="scheme-name">{scheme['name']}<br>
+                <span style="font-family:var(--ff-b);font-size:10.5px;
+                             color:#888;font-weight:400;">{scheme['full']}</span>
+            </div>
+            <div class="scheme-desc">{scheme['desc']}</div>
+            <a class="scheme-link" href="{scheme['link']}" target="_blank" rel="noopener">
+                🔗 Learn More
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════
 # SMART FARMING TIPS
